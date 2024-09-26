@@ -14,16 +14,15 @@ function system_cmd(cmd, opts)
 end
 
 function escape_pattern(text)
-    return text:gsub("([^%w])", "%%%1")
+  return text:gsub('([^%w])', '%%%1')
 end
 
 M.list_file_paths = function()
   local panes = system_cmd { 'tmux', 'list-panes', '-F', '#{pane_id}' }
   local current_pane = system_cmd({ 'sh', '-c', 'echo $TMUX_PANE ' })[1]
 
-  local files = system_cmd { 'fd', '--color=never', '--type', 'f', '--hidden', '--follow', '--exclude', '.git' }
+  local project_files = system_cmd { 'fd', '--color=never', '--type', 'f', '--hidden', '--follow', '--exclude', '.git' }
   local num_history_lines = 10000
-  local results = {}
 
   local contents = ''
 
@@ -34,15 +33,25 @@ M.list_file_paths = function()
     end
   end
 
-  for _, file in ipairs(files) do
+  local files = {}
+  for _, file in ipairs(project_files) do
     local pattern = escape_pattern(file)
-    for match in string.gmatch(contents, pattern .. ":%d+") do
-      table.insert(results, match)
+    for match in string.gmatch(contents, pattern .. ':%d+') do
+      table.insert(files, match)
     end
     for match in string.gmatch(contents, pattern) do
-      table.insert(results, match)
+      table.insert(files, match)
     end
     -- TODO clean duplicated results
+  end
+
+  local hash = {}
+  local results = {}
+  for _, v in ipairs(files) do
+    if not hash[v] then
+      results[#results + 1] = v
+      hash[v] = true
+    end
   end
 
   return results
