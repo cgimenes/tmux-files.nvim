@@ -17,77 +17,75 @@ function escape_pattern(text)
   return text:gsub('([^%w])', '%%%1')
 end
 
-M.list_file_paths = function()
-  local panes = system_cmd { 'tmux', 'list-panes', '-F', '#{pane_id}' }
-  local current_pane = system_cmd({ 'sh', '-c', 'echo $TMUX_PANE ' })[1]
-
-  local project_files = system_cmd { 'fd', '--color=never', '--type', 'f', '--hidden', '--follow', '--exclude', '.git' }
-  local num_history_lines = 10000
-
-  local contents = ''
-
-  for _, pane_id in ipairs(panes) do
-    if pane_id ~= current_pane then
-      local content = system_cmd({ 'sh', '-c', 'tmux capture-pane -p -t ' .. pane_id .. ' -S ' .. -num_history_lines }, { text = true })
-      contents = content .. '\n'
-    end
-  end
-
-  local files = {}
-  for _, file in ipairs(project_files) do
-    local pattern = escape_pattern(file)
-    for match in string.gmatch(contents, pattern .. ':%d+') do
-      table.insert(files, match)
-    end
-    for match in string.gmatch(contents, pattern) do
-      table.insert(files, match)
-    end
-    -- TODO clean duplicated results
-  end
-
-  local hash = {}
-  local results = {}
-  for _, v in ipairs(files) do
-    if not hash[v] then
-      results[#results + 1] = v
-      hash[v] = true
-    end
-  end
-
-  return results
-end
-
 M.select = function()
-  local items = M.list_file_paths()
-  if next(items) == nil then
+  local contents = function(cb)
+    coroutine.wrap(function()
+      local co = coroutine.running()
+
+      local panes = system_cmd { 'tmux', 'list-panes', '-F', '#{pane_id}' }
+      local current_pane = system_cmd({ 'sh', '-c', 'echo $TMUX_PANE ' })[1]
+
+      local project_files = system_cmd { 'fd', '--color=never', '--type', 'f', '--hidden', '--follow', '--exclude', '.git' }
+      local num_history_lines = 10000
+
+      local contents = ''
+
+      for _, pane_id in ipairs(panes) do
+        if pane_id ~= current_pane then
+          local content = system_cmd({ 'sh', '-c', 'tmux capture-pane -p -t ' .. pane_id .. ' -S ' .. -num_history_lines }, { text = true })
+          contents = content .. '\n'
+        end
+      end
+
+      local files = {}
+      for _, file in ipairs(project_files) do
+        local pattern = escape_pattern(file)
+        for match in string.gmatch(contents, pattern .. ':%d+') do
+          table.insert(files, match)
+        end
+        for match in string.gmatch(contents, pattern) do
+          table.insert(files, match)
+        end
+      end
+
+      local hash = {}
+      for _, entry in ipairs(files) do
+        if not hash[entry] then
+          hash[entry] = true
+          cb(entry, function(err)
+            coroutine.resume(co)
+            if err then
+              cb(nil)
+            end
+          end)
+          coroutine.yield()
+        end
+      end
+      -- done
+      cb(nil)
+    end)()
+  end
+
+  local core = require 'fzf-lua.core'
+  local defaults = require 'fzf-lua.defaults'
+  local config = require 'fzf-lua.config'
+  local opts = {
+    previewer = defaults._default_previewer_fn,
+    prompt = 'Tmux Files> ',
+    file_icons = true and defaults._has_devicons,
+    color_icons = true,
+    _actions = function()
+      return defaults.globals.actions.files
+    end,
+    _cached_hls = { 'path_linenr' },
+  }
+  opts = config.normalize_opts(opts, {})
+  if not opts then
     return
   end
-  local on_choice = function(path)
-    if not path then
-      return
-    end
-    local splits = {}
-    local i = 1
-    for part in string.gmatch(path, '[^:]+') do
-      splits[i] = part
-      i = i + 1
-    end
-    local file = splits[1]
-    local line_num = splits[2]
-    vim.cmd('e ' .. file)
-    if line_num then
-      vim.api.nvim_call_function('cursor', { line_num, 0 })
-    end
-  end
-  -- Defer the callback to allow the mode to fully switch back to normal after the fzf terminal
-  local deferred_on_choice = function(...)
-    local args = vim.F.pack_len(...)
-    vim.defer_fn(function()
-      on_choice(vim.F.unpack_len(args))
-    end, 10)
-  end
-  local ui_select = require 'fzf-lua.providers.ui_select'
-  ui_select.ui_select(items, {}, deferred_on_choice)
+  opts = core.set_header(opts, { 'cwd' })
+  opts = core.set_fzf_field_index(opts)
+  return core.fzf_exec(contents, opts)
 end
 
 M.select()
