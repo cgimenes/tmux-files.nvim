@@ -63,42 +63,52 @@ M.select = function()
         local pattern = escape_pattern(file)
 
         for match in string.gmatch(contents, pattern .. ':%d+') do
-          if not hash[match] then
-            hash[match] = true
+          vim.schedule(function()
+            if not hash[match] then
+              hash[match] = true
 
-            local entry = make_entry.file(match, opts)
-            if not entry then
-              -- entry to be skipped (e.g. 'cwd_only')
-              coroutine.resume(co)
-            else
-              fzf_cb(entry, function(err)
+              local entry = make_entry.file(match, opts)
+              if not entry then
+                -- entry to be skipped (e.g. 'cwd_only')
                 coroutine.resume(co)
-                if err then
-                  fzf_cb(nil)
-                end
-              end)
-              coroutine.yield()
+              else
+                fzf_cb(entry, function(err)
+                  coroutine.resume(co)
+                  if err then
+                    fzf_cb(nil)
+                  end
+                end)
+              end
+            else
+              -- entry skipped
+              coroutine.resume(co)
             end
-          end
+          end)
+          coroutine.yield()
         end
         for match in string.gmatch(contents, pattern) do
-          if not hash[match] then
-            hash[match] = true
+          vim.schedule(function()
+            if not hash[match] then
+              hash[match] = true
 
-            local entry = make_entry.file(match, opts)
-            if not entry then
-              -- entry to be skipped (e.g. 'cwd_only')
-              coroutine.resume(co)
-            else
-              fzf_cb(entry, function(err)
+              local entry = make_entry.file(match, opts)
+              if not entry then
+                -- entry to be skipped (e.g. 'cwd_only')
                 coroutine.resume(co)
-                if err then
-                  fzf_cb(nil)
-                end
-              end)
-              coroutine.yield()
+              else
+                fzf_cb(entry, function(err)
+                  coroutine.resume(co)
+                  if err then
+                    fzf_cb(nil)
+                  end
+                end)
+              end
+            else
+              -- entry skipped
+              coroutine.resume(co)
             end
-          end
+          end)
+          coroutine.yield()
         end
       end
 
