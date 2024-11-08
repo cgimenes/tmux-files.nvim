@@ -119,6 +119,4 @@ M.select = function()
   return core.fzf_exec(contents, opts)
 end
 
-M.select()
-
 return M
