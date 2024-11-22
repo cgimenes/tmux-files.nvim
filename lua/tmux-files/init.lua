@@ -1,21 +1,22 @@
 local uv = vim.uv or vim.loop
-local core = require 'fzf-lua.core'
-local utils = require 'fzf-lua.utils'
 local config = require 'fzf-lua.config'
+local core = require 'fzf-lua.core'
+local defaults = require 'fzf-lua.defaults'
 local make_entry = require 'fzf-lua.make_entry'
+local utils = require 'fzf-lua.utils'
 
 local M = {}
 
 M.select = function(opts)
   opts = config.normalize_opts(opts, {
     prompt           = "Tmux Files> ",
-    file_icons       = true and M._has_devicons,
+    file_icons       = true and defaults._has_devicons,
     color_icons      = true,
     git_icons        = false,
-    previewer        = M._default_previewer_fn,
+    previewer        = defaults._default_previewer_fn,
     cwd_only         = true,
     cwd              = nil,
-    _actions         = function() return M.globals.actions.files end,
+    _actions         = function() return defaults.globals.actions.files end,
     cmd              = string.gsub([=[tmux list-panes -F "#{pane_id}" | grep -Fvx $TMUX_PANE | xargs -I {} tmux capture-pane -p -t {} -S -10000 | grep -oiE "(^|^\.|[[:space:]]|[[:space:]]\.|[[:space:]]\.\.|^\.\.)[[:alnum:]~_-]*/[][[:alnum:]_.#$%&+=/@-]*(:\d+(:\d+)?)?" | sort -u]=], [[\$TMUX_PANE]], vim.env.TMUX_PANE),
   })
   if not opts then return end
