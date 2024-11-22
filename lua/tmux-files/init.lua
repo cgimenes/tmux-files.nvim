@@ -9,21 +9,19 @@ local M = {}
 
 M.select = function(opts)
   opts = config.normalize_opts(opts, {
-    prompt           = "Tmux Files> ",
-    file_icons       = true and defaults._has_devicons,
-    color_icons      = true,
-    git_icons        = false,
-    previewer        = defaults._default_previewer_fn,
-    cwd_only         = true,
-    cwd              = nil,
-    _actions         = function() return defaults.globals.actions.files end,
-    cmd              = string.gsub([=[tmux list-panes -F "#{pane_id}" | grep -Fvx $TMUX_PANE | xargs -I {} tmux capture-pane -p -t {} -S -10000 | grep -oiE "(^|^\.|[[:space:]]|[[:space:]]\.|[[:space:]]\.\.|^\.\.)[[:alnum:]~_-]*/[][[:alnum:]_.#$%&+=/@-]*(:\d+(:\d+)?)?" | sort -u]=], [[\$TMUX_PANE]], vim.env.TMUX_PANE),
+    prompt      = "Tmux Files> ",
+    file_icons  = true and defaults._has_devicons,
+    color_icons = true,
+    git_icons   = false,
+    previewer   = defaults._default_previewer_fn,
+    cwd_only    = true,
+    cwd         = nil,
+    _actions    = function() return defaults.globals.actions.files end,
+    cmd         = string.gsub([=[tmux list-panes -F "#{pane_id}" | grep -Fvx $TMUX_PANE | xargs -I {} tmux capture-pane -p -t {} -S -10000 | grep -oiE "(^|^\.|[[:space:]]|[[:space:]]\.|[[:space:]]\.\.|^\.\.)[[:alnum:]~_-]*/[][[:alnum:]_.#$%&+=/@-]*(:\d+(:\d+)?)?" | awk '{$1=$1};1' | sort -u]=], [[\$TMUX_PANE]], vim.env.TMUX_PANE),
   })
   if not opts then return end
 
   opts.fn_transform = function(item)
-    item = vim.trim(item)
-
     local s = utils.strsplit(item, ":")
     local filepath = item
     if #s > 1 then
